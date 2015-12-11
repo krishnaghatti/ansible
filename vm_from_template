@@ -1,0 +1,36 @@
+---
+  - hosts: 127.0.0.1
+    connection: local
+    user: gsri
+    sudo: false
+    gather_facts: false
+    serial: 1
+
+    tasks:
+    - vsphere_guest:
+        vcenter_hostname: 192.168.1.40
+        username: administrator@vsphere.local
+        password: 123456
+        guest: newvm001
+        from_template: yes
+        template_src: centos-base
+        cluster: gsk
+        resource_pool: "/Resources"
+        vm_disk:
+          disk1:
+            size_gb: 10
+            type: thin
+            datastore: 2tb
+        vm_nic:
+          nic1:
+            type: E1000
+            network: management
+            network_type: standard
+        vm_hardware:
+          memory_mb: 1024
+          num_cpus: 2
+          osid: centos64Guest
+          scsi: paravirtual
+        esxi:
+          datacenter: gsk
+          hostname: 192.168.1.101
