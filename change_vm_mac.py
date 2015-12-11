@@ -1,0 +1,55 @@
+from pysphere import *
+from pysphere.resources import VimService_services as VI
+from pysphere.vi_task import VITask
+
+new_mac = "00:0c:29:ac:70:96"
+vm_path = "[datastore1] Windows XP Home Edition - SP3/Windows XP Home
+Edition - SP3.vmx"
+
+#Connect to the server
+s = VIServer()
+s.connect("host", "user", "password")
+
+#Get VM
+vm = s.get_vm_by_path(vm_path)
+
+#Find Virtual Nic device
+net_device = None
+for dev in vm.properties.config.hardware.device:
+    if dev._type in ["VirtualE1000", "VirtualE1000e",
+                     "VirtualPCNet32", "VirtualVmxnet"]:
+        net_device = dev._obj
+        break
+
+if not net_device:
+    s.disconnect()
+    raise Exception("The vm seems to lack a Virtual Nic")
+
+#Set Nic macAddress to Manual and set address
+net_device.set_element_addressType("Manual")
+net_device.set_element_macAddress(new_mac)
+
+#Invoke ReconfigVM_Task
+request = VI.ReconfigVM_TaskRequestMsg()
+_this = request.new__this(vm._mor)
+_this.set_attribute_type(vm._mor.get_attribute_type())
+request.set_element__this(_this)
+spec = request.new_spec()
+dev_change = spec.new_deviceChange()
+dev_change.set_element_device(net_device)
+dev_change.set_element_operation("edit")
+spec.set_element_deviceChange([dev_change])
+request.set_element_spec(spec)
+ret = s._proxy.ReconfigVM_Task(request)._returnval
+
+#Wait for the task to finish
+task = VITask(ret, s)
+
+status = task.wait_for_state([task.STATE_SUCCESS, task.STATE_ERROR])
+if status == task.STATE_SUCCESS:
+    print "VM successfully reconfigured"
+elif status == task.STATE_ERROR:
+    print "Error reconfiguring vm:", task.get_error_message()
+
+#Disconnect from the server
+s.disconnect() 
